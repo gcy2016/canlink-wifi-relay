@@ -23,6 +23,7 @@
 #include "freertos/semphr.h"
 #include "freertos/task.h"
 #include "usb/cdc_acm_host.h"
+#include "usb/usb_host.h"
 
 static const char *TAG = "usb";
 
@@ -166,9 +167,35 @@ static void usb_link_task(void *arg) {
   }
 }
 
+// The CDC-ACM class driver sits on top of the USB Host library: the library
+// must be installed first and needs a task pumping its events, otherwise
+// cdc_acm_host_install() fails with ESP_ERR_INVALID_STATE and no device ever
+// enumerates. (Found on first hardware bring-up: abort loop in app_main.)
+static void usb_host_lib_task(void *arg) {
+  (void)arg;
+  for (;;) {
+    uint32_t event_flags = 0;
+    usb_host_lib_handle_events(portMAX_DELAY, &event_flags);
+  }
+}
+
 esp_err_t usb_cdc_start(usb_cdc_rx_cb_t rx_cb, usb_cdc_state_cb_t state_cb) {
   s_rx_cb = rx_cb;
   s_state_cb = state_cb;
+
+  const usb_host_config_t host_cfg = {
+      .skip_phy_setup = false,
+      .intr_flags = ESP_INTR_FLAG_LEVEL1,
+  };
+  esp_err_t herr = usb_host_install(&host_cfg);
+  if (herr != ESP_OK && herr != ESP_ERR_INVALID_STATE) {
+    ESP_LOGE(TAG, "usb_host_install: %s", esp_err_to_name(herr));
+    return herr;
+  }
+  if (xTaskCreatePinnedToCore(usb_host_lib_task, "usb_lib", 4096, NULL, 10,
+                              NULL, 0) != pdPASS) {
+    return ESP_ERR_NO_MEM;
+  }
 
   s_lock = xSemaphoreCreateMutex();
   if (s_lock == NULL) {
