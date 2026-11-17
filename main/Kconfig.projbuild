@@ -1,0 +1,103 @@
+menu "CANLink Wi-Fi relay"
+
+    menu "Wi-Fi access point"
+
+        config RELAY_AP_SSID
+            string "AP SSID"
+            default "CANLink-Relay"
+            help
+                Name of the hotspot created by the relay box.
+
+        config RELAY_AP_PASSWORD
+            string "AP password (8-63 chars, WPA2)"
+            default "canlink1234"
+            help
+                WPA2-PSK passphrase. Values shorter than 8 characters make the
+                driver fall back to an open network, which is logged as a
+                warning. Change this before using the box in a car.
+
+        config RELAY_AP_CHANNEL
+            int "AP channel (1-13)"
+            range 1 13
+            default 1
+
+        config RELAY_AP_MAX_STA
+            int "Maximum associated stations"
+            range 1 8
+            default 4
+
+    endmenu
+
+    menu "USB host"
+
+        config RELAY_USB_VID
+            hex "Preferred USB VID (hex)"
+            default 0x16D0
+            help
+                Vendor ID of the slcan adapter. Default is the CANable 2.0 /
+                vdlink ID. MKS CANable V2.0 often enumerates as 0x1D50:0x606F;
+                that pair is also tried automatically when
+                RELAY_USB_TRY_KNOWN_DEVICES is enabled.
+
+        config RELAY_USB_PID
+            hex "Preferred USB PID (hex)"
+            default 0x117E
+
+        config RELAY_USB_TRY_KNOWN_DEVICES
+            bool "Also try other known CDC-ACM IDs"
+            default y
+            help
+                Besides the preferred VID/PID, try the IDs of the CANable 1.0 /
+                MKS V2.0 (0x1D50:0x606F) and the STM32 virtual COM port
+                (0x0483:0x5740). Only devices that expose a CDC-ACM interface
+                can be opened.
+
+    endmenu
+
+    menu "Relay limits"
+
+        config RELAY_MAX_LINE_LEN
+            int "Maximum slcan line length"
+            range 64 1024
+            default 256
+            help
+                Longest accepted slcan line, without the terminator. A CAN FD
+                frame with 64 data bytes is about 150 characters in slcan text.
+                Longer lines are dropped and counted.
+
+        config RELAY_WS_MAX_CLIENTS
+            int "Maximum simultaneous WebSocket clients"
+            range 1 8
+            default 4
+
+        config RELAY_WS_PING_INTERVAL_S
+            int "WebSocket keepalive (PING) interval in seconds, 0 = off"
+            range 0 300
+            default 15
+
+    endmenu
+
+    menu "Extras"
+
+        config RELAY_STATUS_LED_GPIO
+            int "Status LED GPIO (-1 = disabled)"
+            default -1
+            help
+                Simple on/off LED: solid when the USB adapter is open, blinking
+                at 1 Hz otherwise. Set to the GPIO of a plain LED; do not point
+                this at a WS2812 data pin, the bit-banging protocol is not
+                implemented here.
+
+        config RELAY_ENABLE_STA_PROVISIONING
+            bool "Enable POST /api/wifi (reserved STA uplink configuration)"
+            default n
+            help
+                Adds a small JSON endpoint that stores STA credentials in NVS
+                so a later firmware revision can join an existing network.
+                Credentials are only read at boot, so a reboot is required.
+                The endpoint has no authentication of its own; it is reachable
+                by anyone associated to the AP.
+
+    endmenu
+
+endmenu

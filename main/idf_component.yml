@@ -1,0 +1,5 @@
+dependencies:
+  idf: ">=5.3,<6.0"
+  # Official Espressif CDC-ACM host class driver (USB Host side).
+  # It pulls in the `usb` host stack from ESP-IDF.
+  espressif/usb_host_cdc_acm: "^2.2.0"
